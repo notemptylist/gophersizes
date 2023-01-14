@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// A struct representing the quiz.
 type Quiz struct {
 	filename  string
 	timelimit int
@@ -18,6 +19,8 @@ type Quiz struct {
 	score     int
 }
 
+// parseFile parses the quiz CSV file and stores the questions
+// in the `questions` member.
 func (q *Quiz) parseFile() error {
 	file, err := os.Open(q.filename)
 	if err != nil {
@@ -33,6 +36,8 @@ func (q *Quiz) parseFile() error {
 	return err
 }
 
+// runQuiz runs the quiz and signals via the channel when the list of
+// questions is exhaused.
 func (q *Quiz) runQuiz(doneCh chan bool) {
 	counter := 1
 	reader := bufio.NewReader(os.Stdin)
@@ -52,6 +57,7 @@ func (q *Quiz) runQuiz(doneCh chan bool) {
 	close(doneCh)
 }
 
+// NewQuiz returns a new Quiz.
 func NewQuiz(fname *string, limit *int) *Quiz {
 	quiz := &Quiz{
 		filename:  *fname,
@@ -62,6 +68,7 @@ func NewQuiz(fname *string, limit *int) *Quiz {
 	return quiz
 }
 
+// scoreQuiz scores the quiz and prints out the results
 func (q *Quiz) scoreQuiz() {
 	percent := float32(q.score) / float32(len(q.questions)) * 100
 	fmt.Printf("\nGot %d out of %d : %3.2f%%", q.score, len(q.questions), percent)
