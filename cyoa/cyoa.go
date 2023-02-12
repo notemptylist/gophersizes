@@ -57,6 +57,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch p := r.URL.Path; p {
 	case "/":
 		if err := tpl.Execute(w, h.s["intro"]); err != nil {
+			http.Error(w, "Server error", http.StatusInternalServerError)
 			log.Fatal(err)
 		}
 	case "/favicon.ico":
@@ -66,12 +67,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		arc, ok := h.s[p]
 		if ok {
 			if err := tpl.Execute(w, arc); err != nil {
+				http.Error(w, "Server error", http.StatusInternalServerError)
 				log.Fatal(err)
 			}
 		} else {
-			fmt.Fprintln(w, "Invalid arc")
+			http.Error(w, "Invalid arc", http.StatusFound)
 		}
-
 	}
-
 }
