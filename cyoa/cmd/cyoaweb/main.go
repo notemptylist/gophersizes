@@ -1,33 +1,26 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"os"
+	"net/http"
 
 	"github.com/notemptylist/gophersizes/cyoa"
 )
 
-func parseFile(fname string) cyoa.Story {
-	f, err := os.Open(fname)
+func main() {
+	file := flag.String("file", "gopher.json", "Story content in JSON format")
+	port := flag.Int("port", 9000, "the port to bind to")
+	flag.Parse()
+	fmt.Printf("Parsing the story in %s\n", *file)
+	story, err := cyoa.ParseFile(*file)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	d := json.NewDecoder(f)
-	var story cyoa.Story
-	if err = d.Decode(&story); err != nil {
-		log.Fatal(err)
-	}
-
-	return story
-}
-func main() {
-	file := flag.String("file", "gopher.json", "Story content in JSON format")
-	flag.Parse()
-	fmt.Printf("Parsing the story in %s\n", *file)
-	fmt.Printf("%+v\n", parseFile(*file))
-
+	h := cyoa.NewHandler(story)
+	addr := fmt.Sprintf(":%d", *port)
+	fmt.Printf("Running web server on http://localhost%s\n", addr)
+	log.Fatal(http.ListenAndServe(addr, h))
 }
