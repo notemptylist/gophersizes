@@ -2,7 +2,6 @@ package cyoa
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -53,12 +52,11 @@ func NewHandler(s Story) http.Handler {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("Serving %s\n", r.URL.Path)
 	switch p := r.URL.Path; p {
 	case "/":
 		if err := tpl.Execute(w, h.s["intro"]); err != nil {
 			http.Error(w, "Server error", http.StatusInternalServerError)
-			log.Fatal(err)
+			log.Println(err)
 		}
 	case "/favicon.ico":
 		w.WriteHeader(http.StatusFound)
@@ -68,7 +66,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ok {
 			if err := tpl.Execute(w, arc); err != nil {
 				http.Error(w, "Server error", http.StatusInternalServerError)
-				log.Fatal(err)
+				log.Println(err)
 			}
 		} else {
 			http.Error(w, "Invalid arc", http.StatusFound)
