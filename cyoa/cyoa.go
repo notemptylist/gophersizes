@@ -52,6 +52,8 @@ type handler struct {
 }
 
 // NewHandler creates and returns a handler type value
+// If any option handler functions were passed, it will execute them on the
+// handler value before returning it.
 func NewHandler(s Story, opts ...HandlerOption) handler {
 	h := handler{s: s}
 	for _, o := range opts {
@@ -64,16 +66,15 @@ func NewHandler(s Story, opts ...HandlerOption) handler {
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch p := r.URL.Path; p {
-	case "/":
+	switch p := strings.TrimLeft(r.URL.Path, "/"); p {
+	case "":
 		if err := h.t.Execute(w, h.s["intro"]); err != nil {
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			log.Println(err)
 		}
-	case "/favicon.ico":
-		w.WriteHeader(http.StatusFound)
+	case "favicon.ico":
+		w.WriteHeader(http.StatusNotFound)
 	default:
-		p = strings.TrimLeft(p, "/")
 		arc, ok := h.s[p]
 		if ok {
 			if err := h.t.Execute(w, arc); err != nil {
@@ -81,7 +82,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 			}
 		} else {
-			http.Error(w, "Invalid arc", http.StatusFound)
+			http.Error(w, "Invalid arc", http.StatusNotFound)
 		}
 	}
 }
