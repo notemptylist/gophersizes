@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <title>Choose Your Own Adventure</title>
+
+    <style>
+            .story {
+                width: 400px;
+                text-align: center;
+            }
+            ul {
+                font-size: large;
+            }
+            ul a {
+                text-decoration: none;
+            }
+            ul a:hover {
+                text-decoration: underline;
+            }
+    </style>
+    </head>
+<body>
+    <h1>{{.Title}}</h1>
+
+    <div class="story">
+    {{range .Story}}
+        <p>{{.}}</p>
+    {{end}}
+    </div>
+
+    <ul>
+    {{range .Options}}
+        <li>
+            <a href="/{{.Arc}}">{{.Text}}</a>
+        </li>
+    {{end}}
+    </ul>
+    
+</body>
+</html>

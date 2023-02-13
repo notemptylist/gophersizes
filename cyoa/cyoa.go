@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const tmpl = "template/template.html"
+const defaultTemplate = "template/template.html"
 
 type Story map[string]StoryArc
 type ArcOption struct {
@@ -21,12 +21,6 @@ type StoryArc struct {
 	Title   string      `json:"title,omitempty"`
 	Story   []string    `json:"story,omitempty"`
 	Options []ArcOption `json:"options,omitempty"`
-}
-
-var tpl *template.Template
-
-func init() {
-	tpl = template.Must(template.ParseFiles(tmpl))
 }
 
 // ParseFile decodes the JSON file and returns a Story
@@ -43,18 +37,36 @@ func ParseFile(fname string) (Story, error) {
 	return story, nil
 }
 
-type handler struct {
-	s Story
+type HandlerOption func(h *handler)
+
+func WithTemplate(t string) HandlerOption {
+	return func(h *handler) {
+		tpl := template.Must(template.ParseFiles(t))
+		h.t = tpl
+	}
 }
 
-func NewHandler(s Story) http.Handler {
-	return handler{s}
+type handler struct {
+	s Story
+	t *template.Template
+}
+
+// NewHandler creates and returns a handler type value
+func NewHandler(s Story, opts ...HandlerOption) handler {
+	h := handler{s: s}
+	for _, o := range opts {
+		o(&h)
+	}
+	if h.t == nil {
+		h.t = template.Must(template.ParseFiles(defaultTemplate))
+	}
+	return h
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch p := r.URL.Path; p {
 	case "/":
-		if err := tpl.Execute(w, h.s["intro"]); err != nil {
+		if err := h.t.Execute(w, h.s["intro"]); err != nil {
 			http.Error(w, "Server error", http.StatusInternalServerError)
 			log.Println(err)
 		}
@@ -64,7 +76,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p = strings.TrimLeft(p, "/")
 		arc, ok := h.s[p]
 		if ok {
-			if err := tpl.Execute(w, arc); err != nil {
+			if err := h.t.Execute(w, arc); err != nil {
 				http.Error(w, "Server error", http.StatusInternalServerError)
 				log.Println(err)
 			}
