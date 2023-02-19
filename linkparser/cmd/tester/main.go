@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 
 	"github.com/notemptylist/gophersizes/linkparser/pkg/linkparse"
@@ -14,6 +15,10 @@ func main() {
 
 	fname := flag.String("inputfile", "", "HTML input file to parse.")
 	flag.Parse()
+	if *fname == "" {
+		fmt.Println("Using a random default file.")
+		fname = &HTMLfiles[rand.Intn(len(HTMLfiles))]
+	}
 	file, err := os.Open(*fname)
 	if err != nil {
 		panic(err)
