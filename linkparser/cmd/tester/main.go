@@ -23,11 +23,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	parser, err := linkparse.New(file)
-	if err != nil {
-		panic(err)
-	}
-	for _, link := range parser.EmitLinks() {
+	for _, link := range linkparse.ParseLinks(file) {
 		fmt.Printf("'%s' -> '%s'\n", link.Text, link.Href)
 	}
 }
