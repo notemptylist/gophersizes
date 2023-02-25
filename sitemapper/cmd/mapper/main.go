@@ -112,13 +112,7 @@ func main() {
 						sm[currentUrl].err = err
 						continue
 					}
-					parser, err := linkparse.New(bytes.NewReader(body))
-					if err != nil {
-						sm[currentUrl].err = err
-						continue
-					}
-
-					for _, link := range parser.EmitLinks() {
+					for _, link := range linkparse.ParseLinks(bytes.NewReader(body)) {
 						log.Printf("Found link: %s", link.Href)
 						if strings.HasPrefix(link.Href, *website) {
 							found = append(found, link.Href)
