@@ -50,10 +50,7 @@ func (m *ExternalUrlError) Error() string {
 
 // parseableLink returns true if the link is to an HTML file or a path.
 func parseableLink(url string) bool {
-	if strings.HasSuffix(url, ".html") || strings.HasSuffix(url, "/") {
-		return true
-	}
-	return false
+	return strings.HasSuffix(url, ".html") || strings.HasSuffix(url, "/")
 }
 
 // generateXML returns an XML document describing the links.
