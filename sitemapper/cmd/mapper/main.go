@@ -42,14 +42,27 @@ type XMLDoc struct {
 	Urls    []UrlString `xml:"url"`
 }
 
+// ExternalUrlError is an error indicating that the URL is pointing to an
+// external domain.
 type ExternalUrlError struct{}
 
-func (m *ExternalUrlError) Error() string {
+func (e ExternalUrlError) Error() string {
 	return "external URL"
+}
+
+// NotParseableError is an error indicating that the URL is not pointing to an HTML
+// document which can be parsed for links.
+type NotParseableError struct{}
+
+func (e NotParseableError) Error() string {
+	return "not parseable"
 }
 
 // parseableLink returns true if the link is to an HTML file or a path.
 func parseableLink(url string) bool {
+	if strings.HasPrefix(url, "#") {
+		return false
+	}
 	return strings.HasSuffix(url, ".html") || strings.HasSuffix(url, "/")
 }
 
@@ -58,7 +71,7 @@ func generateXML(sm sitemap) string {
 
 	xmlDoc := &XMLDoc{}
 	for k, v := range sm {
-		if !errors.Is(v.err, &ExternalUrlError{}) {
+		if !errors.Is(v.err, ExternalUrlError{}) {
 			xmlDoc.Urls = append(xmlDoc.Urls, UrlString{k})
 		}
 	}
@@ -95,14 +108,14 @@ func main() {
 			for currentUrl := range sm {
 				// Only parse HTML files or directories
 				if !parseableLink(currentUrl) {
-					sm[currentUrl].err = errors.New("non parsable")
+					sm[currentUrl].err = NotParseableError{}
+					continue
+				}
+				if !strings.HasPrefix(currentUrl, *website) {
+					sm[currentUrl].err = ExternalUrlError{}
 					continue
 				}
 				if !sm[currentUrl].parsed && sm[currentUrl].err == nil {
-					if !strings.HasPrefix(currentUrl, *website) {
-						sm[currentUrl].err = &ExternalUrlError{}
-						continue
-					}
 					log.Printf("Parsing URL: %s\n", currentUrl)
 					body, err := getUrl(currentUrl)
 					if err != nil {
@@ -113,7 +126,7 @@ func main() {
 						log.Printf("Found link: %s", link.Href)
 						if strings.HasPrefix(link.Href, *website) {
 							found = append(found, link.Href)
-						} else if strings.HasPrefix(link.Href, "/") {
+						} else if strings.HasPrefix(link.Href, "/") || !strings.HasPrefix(link.Href, "http") {
 							normalized, err := url.JoinPath(*website, link.Href)
 							if err != nil {
 								log.Printf("Corrupted url? %s", err)
@@ -122,14 +135,8 @@ func main() {
 							log.Printf("Normalizing to: %s", normalized)
 							found = append(found, normalized)
 						} else {
-							normalized, err := url.JoinPath(currentUrl, link.Href)
-							if err != nil {
-								log.Printf("Corrupted url? %s", err)
-								continue
-							}
-							log.Printf("Normalizing to: %s", normalized)
-							found = append(found, normalized)
-
+							log.Printf("Might be external")
+							found = append(found, link.Href)
 						}
 					}
 					// Mark it as parsed so on the next iteration we will skip it.
