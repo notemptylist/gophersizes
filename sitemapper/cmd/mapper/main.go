@@ -58,12 +58,33 @@ func (e NotParseableError) Error() string {
 	return "not parseable"
 }
 
-// parseableLink returns true if the link is to an HTML file or a path.
+var bins = []string{".pdf", ".jpg", ".png", ".exe", ".bin", ".jpeg", ".so", ".js", ".gif", ".bmp"}
+
+// parseableLink returns true if the link is not to a binary file.
 func parseableLink(url string) bool {
-	if strings.HasPrefix(url, "#") {
-		return false
+	for _, ext := range bins {
+		if strings.HasSuffix(url, ext) {
+			return false
+		}
 	}
-	return strings.HasSuffix(url, ".html") || strings.HasSuffix(url, "/")
+	return true
+}
+
+// externalUrl returns true of the URL points to a different domain than the given website.
+func externalUrl(url, website string) bool {
+	// if either url ends in "/", lets trim it to normalize them.
+	if strings.HasPrefix(url, "http") {
+		url = strings.TrimRight(url, "/")
+		website = strings.TrimRight(website, "/")
+		urlparts := strings.Split(url, "://")
+		websiteparts := strings.Split(website, "://")
+		// the website URL should contain less paths,
+		// otherwise the url is not within its map.
+		if strings.HasPrefix(urlparts[1], websiteparts[1]) {
+			return false
+		}
+	}
+	return true
 }
 
 // generateXML returns an XML document describing the links.
@@ -92,7 +113,10 @@ func main() {
 	sm := sitemap{*website: &status{parsed: false, err: nil}}
 	found := []string{*website}
 	for {
-		if len(found) > 0 {
+		if len(found) == 0 {
+			// If no new links were found we quit
+			break
+		} else {
 			// Merge new urls into sitemap
 			for _, v := range found {
 				if _, ok := sm[v]; ok {
@@ -106,47 +130,63 @@ func main() {
 			found = found[:0]
 
 			for currentUrl := range sm {
-				// Only parse HTML files or directories
+				// Any URL which has a status.parsed == true
+				// or status.err != nil should be skipped early
+				if sm[currentUrl].err != nil || sm[currentUrl].parsed {
+					continue
+				}
+				// Now lets tag the URL with an error if we know ahead of time
+				// it shouldn't be parsed.
 				if !parseableLink(currentUrl) {
 					sm[currentUrl].err = NotParseableError{}
 					continue
 				}
-				if !strings.HasPrefix(currentUrl, *website) {
+				// URLs which link to external domains should not be parsed.
+				if externalUrl(currentUrl, *website) {
 					sm[currentUrl].err = ExternalUrlError{}
 					continue
 				}
-				if !sm[currentUrl].parsed && sm[currentUrl].err == nil {
-					log.Printf("Parsing URL: %s\n", currentUrl)
-					body, err := getUrl(currentUrl)
-					if err != nil {
-						sm[currentUrl].err = err
-						continue
-					}
-					for _, link := range linkparse.ParseLinks(bytes.NewReader(body)) {
-						log.Printf("Found link: %s", link.Href)
-						if strings.HasPrefix(link.Href, *website) {
-							found = append(found, link.Href)
-						} else if strings.HasPrefix(link.Href, "/") || !strings.HasPrefix(link.Href, "http") {
-							normalized, err := url.JoinPath(*website, link.Href)
-							if err != nil {
-								log.Printf("Corrupted url? %s", err)
-								continue
-							}
-							log.Printf("Normalizing to: %s", normalized)
-							found = append(found, normalized)
-						} else {
-							log.Printf("Might be external")
-							found = append(found, link.Href)
-						}
-					}
-					// Mark it as parsed so on the next iteration we will skip it.
-					sm[currentUrl].parsed = true
+
+				// if checks pass, lets actually download the body of the URL
+				log.Printf("Parsing URL: %s\n", currentUrl)
+				body, err := getUrl(currentUrl)
+				if err != nil {
+					sm[currentUrl].err = err
+					continue
 				}
+
+				for _, link := range linkparse.ParseLinks(bytes.NewReader(body)) {
+					log.Printf("Found link: %s", link.Href)
+					if strings.HasPrefix(link.Href, *website) || strings.HasPrefix(link.Href, "#") {
+						found = append(found, link.Href)
+					} else if strings.HasPrefix(link.Href, "/") {
+						normalized, err := url.JoinPath(*website, link.Href)
+						if err != nil {
+							log.Printf("Corrupted url? %s", err)
+							continue
+						}
+						log.Printf("Normalizing to: %s", normalized)
+						found = append(found, normalized)
+					} else if !strings.HasPrefix(link.Href, "http") && !strings.HasPrefix(link.Href, "mailto") {
+						normalized, err := url.JoinPath(currentUrl, link.Href)
+						if err != nil {
+							log.Printf("Corrupted url? %s", err)
+							continue
+						}
+						log.Printf("Normalizing to: %s", normalized)
+						found = append(found, normalized)
+					} else {
+						found = append(found, link.Href)
+					}
+				}
+				// Mark it as parsed so on the next iteration we will skip it.
+				sm[currentUrl].parsed = true
 			}
-		} else {
-			// If no new links were found we quit
-			break
 		}
+	}
+
+	for k, v := range sm {
+		fmt.Printf("%s, %#v\n", k, v)
 	}
 	fmt.Println(generateXML(sm))
 }
