@@ -108,10 +108,17 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	fmt.Printf("Mapping site: %s\n", *website)
+	log.Printf("Verifying URL: %s", *website)
+	resp, err := http.Get(*website)
+	if err != nil {
+		panic(err)
+	}
+	// let's use the URL where the request ultimately ended up.
+	reqUrl := resp.Request.URL
+	fmt.Printf("Mapping site: %s\n", reqUrl.String())
 
-	sm := sitemap{*website: &status{parsed: false, err: nil}}
-	found := []string{*website}
+	sm := sitemap{}
+	found := []string{reqUrl.String()}
 	for {
 		if len(found) == 0 {
 			// If no new links were found we quit
@@ -142,7 +149,7 @@ func main() {
 					continue
 				}
 				// URLs which link to external domains should not be parsed.
-				if externalUrl(currentUrl, *website) {
+				if externalUrl(currentUrl, reqUrl.String()) {
 					sm[currentUrl].err = ExternalUrlError{}
 					continue
 				}
@@ -157,10 +164,10 @@ func main() {
 
 				for _, link := range linkparse.ParseLinks(bytes.NewReader(body)) {
 					log.Printf("Found link: %s", link.Href)
-					if strings.HasPrefix(link.Href, *website) || strings.HasPrefix(link.Href, "#") {
+					if strings.HasPrefix(link.Href, reqUrl.String()) || strings.HasPrefix(link.Href, "#") {
 						found = append(found, link.Href)
 					} else if strings.HasPrefix(link.Href, "/") {
-						normalized, err := url.JoinPath(*website, link.Href)
+						normalized, err := url.JoinPath(reqUrl.String(), link.Href)
 						if err != nil {
 							log.Printf("Corrupted url? %s", err)
 							continue
@@ -183,10 +190,6 @@ func main() {
 				sm[currentUrl].parsed = true
 			}
 		}
-	}
-
-	for k, v := range sm {
-		fmt.Printf("%s, %#v\n", k, v)
 	}
 	fmt.Println(generateXML(sm))
 }
