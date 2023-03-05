@@ -87,6 +87,32 @@ func externalUrl(url, website string) bool {
 	return true
 }
 
+// hrefs Returns links parsed from the passed in io.Reader.
+func hrefs(r io.Reader, base string) []string {
+	var ret []string
+	for _, link := range linkparse.ParseLinks(r) {
+		log.Printf("Found link: %s", link.Href)
+		if strings.HasPrefix(link.Href, "/") || strings.HasPrefix(link.Href, "#") || !strings.HasPrefix(link.Href, "http") {
+			b, err := url.Parse(base)
+			if err != nil {
+				log.Printf("Unparseable base path: %s", err)
+				continue
+			}
+			p, err := url.Parse(link.Href)
+			if err != nil {
+				log.Printf("Corrupted url? %s", err)
+				continue
+			}
+			normalized := b.ResolveReference(p).String()
+			log.Printf("Normalizing to: %s", normalized)
+			ret = append(ret, normalized)
+		} else {
+			ret = append(ret, link.Href)
+		}
+	}
+	return ret
+}
+
 // generateXML returns an XML document describing the links.
 func generateXML(sm sitemap) string {
 
@@ -98,6 +124,13 @@ func generateXML(sm sitemap) string {
 	}
 	out, _ := xml.MarshalIndent(xmlDoc, " ", " ")
 	return xml.Header + string(out)
+}
+
+// extractDomain returns the URL with just the domain part.
+func extractDomain(website url.URL) string {
+	website.Path = ""
+	website.RawQuery = ""
+	return website.String()
 }
 
 func main() {
@@ -118,7 +151,9 @@ func main() {
 	fmt.Printf("Mapping site: %s\n", reqUrl.String())
 
 	sm := sitemap{}
+
 	found := []string{reqUrl.String()}
+	domain := extractDomain(*reqUrl)
 	for {
 		if len(found) == 0 {
 			// If no new links were found we quit
@@ -149,7 +184,7 @@ func main() {
 					continue
 				}
 				// URLs which link to external domains should not be parsed.
-				if externalUrl(currentUrl, reqUrl.String()) {
+				if externalUrl(currentUrl, domain) {
 					sm[currentUrl].err = ExternalUrlError{}
 					continue
 				}
@@ -161,31 +196,7 @@ func main() {
 					sm[currentUrl].err = err
 					continue
 				}
-
-				for _, link := range linkparse.ParseLinks(bytes.NewReader(body)) {
-					log.Printf("Found link: %s", link.Href)
-					if strings.HasPrefix(link.Href, reqUrl.String()) || strings.HasPrefix(link.Href, "#") {
-						found = append(found, link.Href)
-					} else if strings.HasPrefix(link.Href, "/") {
-						normalized, err := url.JoinPath(reqUrl.String(), link.Href)
-						if err != nil {
-							log.Printf("Corrupted url? %s", err)
-							continue
-						}
-						log.Printf("Normalizing to: %s", normalized)
-						found = append(found, normalized)
-					} else if !strings.HasPrefix(link.Href, "http") && !strings.HasPrefix(link.Href, "mailto") {
-						normalized, err := url.JoinPath(currentUrl, link.Href)
-						if err != nil {
-							log.Printf("Corrupted url? %s", err)
-							continue
-						}
-						log.Printf("Normalizing to: %s", normalized)
-						found = append(found, normalized)
-					} else {
-						found = append(found, link.Href)
-					}
-				}
+				found = append(found, hrefs(bytes.NewReader(body), currentUrl)...)
 				// Mark it as parsed so on the next iteration we will skip it.
 				sm[currentUrl].parsed = true
 			}
