@@ -38,6 +38,7 @@ type UrlString struct {
 	Url string `xml:"loc"`
 }
 type XMLDoc struct {
+	Xmlns   string      `xml:"xmlns,attr"`
 	XMLName xml.Name    `xml:"urlset"`
 	Urls    []UrlString `xml:"url"`
 }
@@ -116,7 +117,7 @@ func hrefs(r io.Reader, base string) []string {
 // generateXML returns an XML document describing the links.
 func generateXML(sm sitemap) string {
 
-	xmlDoc := &XMLDoc{}
+	xmlDoc := &XMLDoc{Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9"}
 	for k, v := range sm {
 		if !errors.Is(v.err, ExternalUrlError{}) {
 			xmlDoc.Urls = append(xmlDoc.Urls, UrlString{k})
