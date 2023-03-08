@@ -1,4 +1,4 @@
-package camelCase
+package main
 
 import (
 	"flag"
@@ -9,17 +9,17 @@ import (
 const upperMin = 65 // A
 const upperMax = 90 // Z
 // countCamel counts the number of words encoded in the provided string.
-func CountCamel(s string) int {
+func countCamel(s string) int {
 	if len(s) < 1 {
 		return 0
 	}
-	var n int
+	n := 1
 	for _, ch := range s {
 		if int(ch) >= upperMin && int(ch) <= upperMax {
 			n++
 		}
 	}
-	return n + 1
+	return n
 }
 
 func main() {
@@ -30,5 +30,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s contains %d words\n", *camelString, CountCamel(*camelString))
+	fmt.Printf("'%s' contains %d words\n", *camelString, countCamel(*camelString))
 }

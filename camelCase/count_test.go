@@ -1,11 +1,11 @@
-package camelCase_test
+package main
 
 import (
-	"fmt"
 	"testing"
-
-	"github.com/notemptylist/gophersizes/camelCase"
 )
+
+const check = "\u2713"
+const cross = "\u2717"
 
 func TestCount(t *testing.T) {
 
@@ -15,14 +15,15 @@ func TestCount(t *testing.T) {
 	}{
 		{"saveChangesInTheEditor", 5},
 		{"camelCaseStringWithSixWords", 6},
+		{"hump", 1},
+		{"", 0},
 	}
 	for _, tt := range tests {
-		testname := fmt.Sprintf("%s, %d", tt.s, tt.want)
-		t.Run(testname, func(t *testing.T) {
-			ans := camelCase.CountCamel(tt.s)
-			if ans != tt.want {
-				t.Errorf("got %d want %d", ans, tt.want)
-			}
-		})
+		ans := countCamel(tt.s)
+		if ans != tt.want {
+			t.Errorf("%s got %d want %d", cross, ans, tt.want)
+		} else {
+			t.Logf("%s got %d want %d", check, ans, tt.want)
+		}
 	}
 }
